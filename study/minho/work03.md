@@ -167,6 +167,34 @@ self._tmp_dir = "/tmp/IsaacLab/..."
 | `track_lin_vel_xy_exp` | +1.5 | 전진 보상 |
 | `track_ang_vel_z_exp` | +0.75 | 회전 보상 |
 
+각 항목의 계산식 (Isaac Lab `mdp.rewards` 표준 정의 기준):
+
+- **`flat_orientation_l2`** (패널티)
+  $$r = \sum \left( g^b_{xy} \right)^2$$
+  로봇 base 좌표계로 투영한 중력 벡터 $g^b$의 x, y 성분 제곱합. 로봇이 완전히 수평이면 중력은 z축에만 실려 $g^b_{xy}=0$이 되고, 기울거나 뒤집힐수록 값이 커진다.
+
+- **`base_height_l2`** (패널티)
+  $$r = (h - h_{target})^2$$
+  base 링크의 현재 높이 $h$와 목표 높이 $h_{target}=0.18m$의 오차 제곱.
+
+- **`ang_vel_xy_l2`** (패널티)
+  $$r = \sum \left( \omega^b_{xy} \right)^2$$
+  base 좌표계 기준 roll·pitch 방향 각속도(x, y축) 제곱합. 몸통이 좌우/앞뒤로 흔들리는 정도를 측정.
+
+- **`lin_vel_z_l2`** (패널티)
+  $$r = \left( v^b_z \right)^2$$
+  base 좌표계 기준 수직(z축) 선속도 제곱. 튀어 오르거나 위아래로 들썩이는 움직임을 억제.
+
+- **`track_lin_vel_xy_exp`** (보상)
+  $$r = \exp\left( -\dfrac{\lVert v^{cmd}_{xy} - v^b_{xy} \rVert^2}{\sigma^2} \right)$$
+  명령된 목표 속도 $v^{cmd}_{xy}$와 실제 속도 $v^b_{xy}$의 오차 제곱을 exp(음수)로 감싸, 오차가 0에 가까울수록 보상이 1에 수렴하고 커질수록 0으로 급격히 감소.
+
+- **`track_ang_vel_z_exp`** (보상)
+  $$r = \exp\left( -\dfrac{\left( \omega^{cmd}_z - \omega^b_z \right)^2}{\sigma^2} \right)$$
+  명령된 목표 yaw 각속도 $\omega^{cmd}_z$와 실제 yaw 각속도 $\omega^b_z$ 오차에 대한 동일한 형태의 지수 보상.
+
+최종 스텝 보상은 `가중치 × r`의 합으로 계산되며(`l2` 항목은 가중치가 음수이므로 패널티로 작용), 패널티 항목들이 "누워서 편하게 버티기" 같은 reward hacking을 막고 exp 보상 항목들이 실제 이동/회전 명령 추종을 유도하는 구조다.
+
 ### 4.4 NaN 버그 패치 (rsl-rl)
 
 파일: `isaac_env\Lib\site-packages\rsl_rl\modules\distribution.py`
